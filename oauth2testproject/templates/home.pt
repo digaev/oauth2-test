@@ -1,0 +1,45 @@
+<metal:block use-macro="main_template">
+  <tal:block metal:fill-slot="content">
+    <div class="container">
+      <div class="row">
+        <div class="col-md-12">
+          <div class="jumbotron">
+            <center>
+              <h1>Welcome to our site!</h1>
+              <tal:if condition="not:user_logged">
+                <h2>Please, come in...</h2>
+                <p><a class="btn btn-primary btn-lg" role="button" data-toggle="modal" data-target=".signup-modal">Sign in</a></p>
+              </tal:if>
+              <tal:elif condition="user_logged">
+                <h2>Hello, ${user_name}</h2>
+                <p><a class="btn btn-default btn-lg" role="button" id="btn-logout" data-loading-text="Good bye...">Sign out</a></p>
+              </tal:elif>
+            </center>
+          </div>
+        </div>
+
+        <div tal:condition="not:user_logged" class="modal fade signup-modal" tabindex="-1" role="dialog">
+          <div class="modal-dialog modal-dialog-center modal-lg">
+            <div class="modal-content">
+              <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal">&times;</button>
+                <h4 class="modal-title">Sign in</h4>
+              </div>
+
+              <div class="modal-body">
+                <center>
+                  <a class="btn btn-lg btn-social-icon btn-github" service-id="github">
+                    <i class="fa fa-github"></i>
+                  </a>
+                  <a class="btn btn-lg btn-social-icon btn-google-plus" service-id="google-plus">
+                    <i class="fa fa-google-plus"></i>
+                  </a>
+                </center>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </tal:block>
+</metal:block>
