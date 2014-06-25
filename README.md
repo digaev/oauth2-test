@@ -10,6 +10,11 @@ Installation
     $ pserve development.ini --reload
 
 
+System Requirements
+-------------------
+
+Python 3.4.1
+
 Domain Settings
 ---------------
 
