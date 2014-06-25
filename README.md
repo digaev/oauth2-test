@@ -13,4 +13,4 @@ Installation
 Domain Settings
 ---------------
 
-In file services/services.py - replace REDIRECT_URI constant according with your wishes.
+In file services/services.py - replace REDIRECT_URI constant according to your wishes.
