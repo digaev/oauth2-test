@@ -1,4 +1,5 @@
 import datetime
+import json
 
 from pyramid.response import Response
 from pyramid.view import view_config
@@ -108,24 +109,23 @@ def oauth2_callback_view(request):
             if 'error' in request.params:
                 response.text = msg['cancel']
             elif 'code' in request.params:
-                buf = services.exchange_code(request.params['service'], request.params['code'])
-                if buf is None:
+                ac = services.exchange_code(request.params['service'], request.params['code'])
+                if (ac is None) or not ('access_token' in ac):
                     response.text = msg['error']
                 else:
-                    session.oauth2_init(request.params['service'], buf)
+                    session.oauth2_init(request.params['service'], json.dumps(ac))
 
-                    oauth2 = session.oauth2_data_json()
-                    buf = services.get_user_info(request.params['service'], oauth2['access_token'])
-                    if buf is None:
+                    ui = services.get_user_info(request.params['service'], ac['access_token'])
+                    if ui is None:
                         session.oauth2_clear()
                         response.text = msg['error']
                     else:
-                        session.user_info = buf
+                        session.user_info = json.dumps(ui)
                         response.text = msg['success']
 
                         # g+
-                        if 'expires_in' in oauth2:
-                            expired_in = session.oauth2_created_at.timestamp() + oauth2['expires_in']
+                        if 'expires_in' in ac:
+                            expired_in = session.oauth2_created_at.timestamp() + ac['expires_in']
                             session.oauth2_expired_in = datetime.datetime.fromtimestamp(expired_in)
             else:
                 response.text = msg['error']

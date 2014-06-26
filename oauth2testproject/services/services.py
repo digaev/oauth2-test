@@ -2,8 +2,8 @@ import urllib
 import http.client
 import json
 
-#REDIRECT_URI = 'http://lvh.me:6543/oauth2_callback?service='
-REDIRECT_URI = 'http://fathomless-lowlands-8037.herokuapp.com/oauth2_callback?service='
+REDIRECT_URI = 'http://lvh.me:6543/oauth2_callback?service='
+#REDIRECT_URI = 'http://fathomless-lowlands-8037.herokuapp.com/oauth2_callback?service='
 
 SERVICE_GOOGLE_PLUS = 'google-plus'
 SERVICE_GOOGLE_PLUS_CLIENT_ID = '369228793883-po5c6a8bmtjj3rpbu83jojp98111prj3.apps.googleusercontent.com'
@@ -129,7 +129,8 @@ def exchange_code(service_id, code):
     )
     content_type = response.getheader('Content-Type').lower()
     if (response.status == 200) and (content_type.find('application/json') != -1):
-        return str(response.read(), 'utf-8')
+        buf = str(response.read(), 'utf-8')
+        return json.loads(buf)
     return None
 
 def get_user_info(service_id, access_token):
@@ -144,5 +145,6 @@ def get_user_info(service_id, access_token):
     )
     content_type = response.getheader('Content-Type').lower()
     if (response.status == 200) and (content_type.find('application/json') != -1):
-        return str(response.read(), 'utf-8')
+        buf = str(response.read(), 'utf-8')
+        return json.loads(buf)
     return None
