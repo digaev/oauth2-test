@@ -109,13 +109,13 @@ def oauth2_callback_view(request):
             if 'error' in request.params:
                 response.text = msg['cancel']
             elif 'code' in request.params:
-                ac = services.exchange_code(request.params['service'], request.params['code'])
-                if (ac is None) or not ('access_token' in ac):
+                at = services.exchange_code(request.params['service'], request.params['code'])
+                if (at is None) or not ('access_token' in at):
                     response.text = msg['error']
                 else:
-                    session.oauth2_init(request.params['service'], json.dumps(ac))
+                    session.oauth2_init(request.params['service'], json.dumps(at))
 
-                    ui = services.get_user_info(request.params['service'], ac['access_token'])
+                    ui = services.get_user_info(request.params['service'], at['access_token'])
                     if ui is None:
                         session.oauth2_clear()
                         response.text = msg['error']
@@ -124,8 +124,8 @@ def oauth2_callback_view(request):
                         response.text = msg['success']
 
                         # g+
-                        if 'expires_in' in ac:
-                            expired_in = session.oauth2_created_at.timestamp() + ac['expires_in']
+                        if 'expires_in' in at:
+                            expired_in = session.oauth2_created_at.timestamp() + at['expires_in']
                             session.oauth2_expired_in = datetime.datetime.fromtimestamp(expired_in)
             else:
                 response.text = msg['error']

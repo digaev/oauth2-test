@@ -2,8 +2,8 @@ import urllib
 import http.client
 import json
 
-REDIRECT_URI = 'http://lvh.me:6543/oauth2_callback?service='
-#REDIRECT_URI = 'http://fathomless-lowlands-8037.herokuapp.com/oauth2_callback?service='
+#REDIRECT_URI = 'http://lvh.me:6543/oauth2_callback?service='
+REDIRECT_URI = 'http://fathomless-lowlands-8037.herokuapp.com/oauth2_callback?service='
 
 SERVICE_GOOGLE_PLUS = 'google-plus'
 SERVICE_GOOGLE_PLUS_CLIENT_ID = '369228793883-po5c6a8bmtjj3rpbu83jojp98111prj3.apps.googleusercontent.com'
