@@ -77,7 +77,7 @@ SERVICES = {
             'port': 443,
             'path': '/user',
             'params': {
-                'access_token': 'shoud be filled later'
+                #'access_token': 'shoud be filled later'
             }
         }
     }

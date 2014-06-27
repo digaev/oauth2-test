@@ -28,11 +28,8 @@
 
               <div class="modal-body">
                 <center>
-                  <a class="btn btn-lg btn-social-icon btn-github" service-id="github">
-                    <i class="fa fa-github"></i>
-                  </a>
-                  <a class="btn btn-lg btn-social-icon btn-google-plus" service-id="google-plus">
-                    <i class="fa fa-google-plus"></i>
+                  <a tal:repeat="social python:socials" class="btn btn-lg btn-social-icon btn-${social}" service-id="${social}">
+                    <i class="fa fa-${social}"></i>
                   </a>
                 </center>
               </div>

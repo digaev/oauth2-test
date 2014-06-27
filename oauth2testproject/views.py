@@ -53,6 +53,9 @@ def home_view(request):
                 view_data['user_name'] = user_info['given_name']
             elif session.service_id == services.SERVICE_GITHUB:
                 view_data['user_name'] = user_info['login']
+
+    if not view_data['user_logged']:
+        view_data['socials'] = services.SERVICES.keys()
     return view_data
 
 # Sign out
@@ -60,19 +63,18 @@ def home_view(request):
         route_name='signout'
         )
 def signout_view(request):
-    response = Response()
     if 'sid' in request.cookies:
         session = UserSession.find_by_sid(request.cookies['sid'])
     else:
         session = None
 
     if session is not None:
-        response.delete_cookie(session.session_id)
+        request.response.delete_cookie(session.session_id)
         DBSession.delete(session)
         DBSession.flush()
     else:
-        request.response = 400
-    return response
+        request.response.status_int = 400
+    return request.response
 
 # Here we should return authentication url
 @view_config(
@@ -94,7 +96,6 @@ def oauth2_auth_view(request):
         route_name='oauth2_callback'
         )
 def oauth2_callback_view(request):
-    response = Response()
     if ('service' in request.params) and\
             ('state' in request.params) and\
             (services.is_service(request.params['service'])):
@@ -107,31 +108,31 @@ def oauth2_callback_view(request):
             }
 
             if 'error' in request.params:
-                response.text = msg['cancel']
+                request.response.text = msg['cancel']
             elif 'code' in request.params:
                 at = services.exchange_code(request.params['service'], request.params['code'])
                 if (at is None) or not ('access_token' in at):
-                    response.text = msg['error']
+                    request.response.text = msg['error']
                 else:
                     session.oauth2_init(request.params['service'], json.dumps(at))
 
                     ui = services.get_user_info(request.params['service'], at['access_token'])
                     if ui is None:
                         session.oauth2_clear()
-                        response.text = msg['error']
+                        request.response.text = msg['error']
                     else:
                         session.user_info = json.dumps(ui)
-                        response.text = msg['success']
+                        request.response.text = msg['success']
 
                         # g+
                         if 'expires_in' in at:
                             expired_in = session.oauth2_created_at.timestamp() + at['expires_in']
                             session.oauth2_expired_in = datetime.datetime.fromtimestamp(expired_in)
             else:
-                response.text = msg['error']
+                request.response.text = msg['error']
     else:
-        response.status_int = 400
-    return response
+        request.response.status_int = 400
+    return request.response
 
 
 conn_err_msg = """\
