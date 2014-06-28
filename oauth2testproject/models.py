@@ -28,6 +28,8 @@ Base = declarative_base()
 
 
 class UserSession(Base):
+    DEFAULT_LIFETIME = 3600 # 1 hour
+
     __tablename__ = 'sessions'
 
     id = Column(Integer, primary_key=True)
@@ -40,8 +42,8 @@ class UserSession(Base):
     oauth2_created_at = Column(DateTime)
     # OAuth2 session expired time
     oauth2_expired_in = Column(DateTime)
-    # JSON, response to CODE request
-    oauth2_data = Column(UnicodeText)
+    # JSON
+    oauth2_access_token = Column(UnicodeText)
     # JSON
     user_info = Column(UnicodeText)
     # Record creation time
@@ -50,21 +52,14 @@ class UserSession(Base):
     def __init__(self):
         self.session_id = hashlib.md5(str(time.time()).encode() + str(random.random()).encode()).hexdigest()
 
-    def oauth2_init(self, service, data):
-        self.service_id = service
-        self.oauth2_created_at = datetime.datetime.utcnow()
-        self.oauth2_data = data
-        return True
-
-    def oauth2_clear(self):
-        self.service_id = None
-        self.oauth2_created_at = None
-        self.oauth2_expired_in = None
-        self.oauth2_data = None
-        return True
-
     def oauth2_data_json(self):
         return json.loads(self.oauth2_data)
+
+    def oauth2_is_alive(self):
+        if self.oauth2_created_at is None:
+            return False
+        else:
+            return self.oauth2_expired_in > datetime.datetime.utcnow()
 
     def user_info_json(self):
         return json.loads(self.user_info)

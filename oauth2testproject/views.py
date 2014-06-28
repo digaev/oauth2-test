@@ -13,13 +13,40 @@ from .models import (
 
 from .services.services import Services
 
-class Views(object):
+class ViewBase(object):
     def __init__(self, context, request):
         self.context = context
         self.request = request
+        self.response = self.request.response
+        self.session = None
 
     def __call__(self):
         return Response()
+
+    def create_session(self):
+        self.session = UserSession()
+        DBSession.add(self.session)
+        self.response.set_cookie('sid', self.session.session_id)
+
+    def find_session(self, sid=None):
+        if (sid is None) and ('sid' in self.request.cookies):
+            sid = self.request.cookies['sid']
+        if sid is not None:
+            self.session = UserSession.find_by_sid(sid)
+        return self.session is not None
+
+class SiteView(ViewBase):
+    def __init__(self, context, request):
+        super(SiteView, self).__init__(context, request)
+
+        if not self.find_session():
+            self.create_session()
+
+        self.user_logged = self.session.oauth2_is_alive()
+        self.view_data = {
+            'project': 'oauth2-test-project',
+            'user_logged': self.user_logged
+        }
 
     @view_config(
             route_name='home',
@@ -27,123 +54,100 @@ class Views(object):
             renderer='templates/home.pt'
             )
     def home_view(self):
-        view_data = {
-            'project': 'oauth2-test-project',
-            'title': 'Home',
-            'user_logged': False
-        }
-
-        # Looking for user's session
-        if 'sid' in self.request.cookies:
-            session = UserSession.find_by_sid(self.request.cookies['sid'])
+        self.view_data['title'] = 'Home'
+        if self.user_logged:
+            ui = self.session.user_info_json()
+            if self.session.service_id == Services.GooglePlus.ID:
+                self.view_data['user_name'] = ui['given_name']
+            elif self.session.service_id == Services.Github.ID:
+                self.view_data['user_name'] = ui['login']
         else:
-            session = None
+            self.view_data['socials'] = Services.SERVICES.keys()
+        return self.view_data
 
-        # Session was not found or this is the first visit
-        if session is None:
-            session = UserSession()
-            DBSession.add(session)
-            self.request.response.set_cookie('sid', session.session_id)
-
-        # Session found. Ok, check if user is logged in
-        elif session.oauth2_created_at is not None:
-            # oauth2 is still alive?
-            if session.oauth2_expired_in is None:
-                view_data['user_logged'] = True
-            else:
-                view_data['user_logged'] = session.oauth2_expired_in > datetime.datetime.utcnow()
-
-            if view_data['user_logged']:
-                # Seems like everything is fine, getting the name
-                user_info = session.user_info_json()
-                if session.service_id == Services.GooglePlus.ID:
-                    view_data['user_name'] = user_info['given_name']
-                elif session.service_id == Services.Github.ID:
-                    view_data['user_name'] = user_info['login']
-
-        if not view_data['user_logged']:
-            view_data['socials'] = Services.SERVICES.keys()
-        return view_data
-
-# Sign out
     @view_config(
             route_name='signout'
             )
     def signout_view(self):
-        if 'sid' in self.request.cookies:
-            session = UserSession.find_by_sid(self.request.cookies['sid'])
-        else:
-            session = None
-
-        if session is not None:
-            self.request.response.delete_cookie(session.session_id)
-            DBSession.delete(session)
+        if self.session is not None:
+            self.response.delete_cookie(self.session.session_id)
+            DBSession.delete(self.session)
             DBSession.flush()
         else:
-            self.request.response.status_int = 400
-        return self.request.response
+            self.response.status_int = 400
+        return self.response
 
-# Here we should return authentication url
+class OAuth2View(ViewBase):
+    MESSAGES = {
+        'success': '<html><body><strong>You have successfully logged in!</strong><br /><a href="javascript:window.close();">Close this window</a></body></html>',
+        'cancel': '<html><body><strong>Authentication cancelled.</strong><br /><a href="javascript:window.close();">Close this window</a></body></html>',
+        'error': '<html><body><strong>Some error has occurred</strong><br /><a href="javascript:window.close();">Close this window</a></body></html>'
+    }
+
+    def __init__(self, context, request):
+        super(OAuth2View, self).__init__(context, request)
+        self.services = Services()
+
+    # Here we should return authentication url
     @view_config(
             route_name='oauth2_auth',
             renderer='json'
             )
     def oauth2_auth_view(self):
-        session = UserSession.find_by_sid(self.request.cookies['sid'])
-        services = Services()
-        if (session is not None) and\
+        if (self.find_session()) and\
                 ('service' in self.request.params) and\
-                (services.is_service(self.request.params['service'])):
-            service = services.create_service(self.request.params['service'])
+                (self.services.is_service(self.request.params['service'])):
+            service = self.services.create_service(self.request.params['service'])
             url = service.get_auth_url(self.request.cookies['sid'])
             return {'url': url}
         else:
-            self.request.response.status_int = 400
+            self.response.status_int = 400
 
-# OAuth2 callback function, let's dance
+    # OAuth2 callback function, let's dance
     @view_config(
             route_name='oauth2_callback'
             )
     def oauth2_callback_view(self):
-        services = Services()
         if ('service' in self.request.params) and\
                 ('state' in self.request.params) and\
-                (services.is_service(self.request.params['service'])):
-            session = UserSession.find_by_sid(self.request.params['state'])
-            if session is not None:
-                msg = {
-                    'success': '<html><body><strong>You have successfully logged in!</strong><br /><a href="javascript:window.close();">Close this window</a></body></html>',
-                    'cancel': '<html><body><strong>Authentication cancelled.</strong><br /><a href="javascript:window.close();">Close this window</a></body></html>',
-                    'error': '<html><body><strong>Some error has occurred</strong><br /><a href="javascript:window.close();">Close this window</a></body></html>'
-                }
-
-                if 'error' in self.request.params:
-                    self.request.response.text = msg['cancel']
-                elif 'code' in self.request.params:
-                    service = services.create_service(self.request.params['service'])
-                    at = service.exchange_code(self.request.params['code'])
-                    if (at is None) or not ('access_token' in at):
-                        self.request.response.text = msg['error']
+                (self.services.is_service(self.request.params['service'])):
+            if self.find_session(self.request.params['state']):
+                if 'code' in self.request.params:
+                    if self.init_user_session():
+                        self.response.text = self.MESSAGES['success']
                     else:
-                        session.oauth2_init(self.request.params['service'], json.dumps(at))
-
-                        ui = service.get_user_info(at['access_token'])
-                        if ui is None:
-                            session.oauth2_clear()
-                            self.request.response.text = msg['error']
-                        else:
-                            session.user_info = json.dumps(ui)
-                            self.request.response.text = msg['success']
-
-                            # g+
-                            if 'expires_in' in at:
-                                expired_in = session.oauth2_created_at.timestamp() + at['expires_in']
-                                session.oauth2_expired_in = datetime.datetime.fromtimestamp(expired_in)
+                        self.response.text = self.MESSAGES['error']
+                elif 'error' in self.request.params:
+                    self.response.text = self.MESSAGES['cancel']
                 else:
-                    self.request.response.text = msg['error']
+                    self.response.text = self.MESSAGES['error']
         else:
-            self.request.response.status_int = 400
-        return self.request.response
+            self.response.status_int = 400
+        return self.response
+
+    def init_user_session(self):
+        service = self.services.create_service(self.request.params['service'])
+        at = service.exchange_code(self.request.params['code'])
+        if (at is not None) and ('access_token' in at):
+            ui = service.get_user_info(at['access_token'])
+            if ui is not None:
+                if 'expires_in' in at:
+                    try:
+                        expires_in = int(at['expires_in'])
+                    except:
+                        expires_in = UserSession.DEFAULT_LIFETIME
+                else:
+                    expires_in = UserSession.DEFAULT_LIFETIME
+
+                now = datetime.datetime.utcnow()
+
+                self.session.service_id = self.request.params['service']
+                self.session.oauth2_created_at = now
+                self.session.oauth2_expired_in = datetime.datetime.fromtimestamp(now.timestamp() + expires_in)
+                self.session.oauth2_access_token = json.dumps(at)
+                self.session.user_info = json.dumps(ui)
+                return True
+        return False
 
 
 conn_err_msg = """\
