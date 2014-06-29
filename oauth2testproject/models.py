@@ -37,7 +37,7 @@ class UserSession(Base):
     # Cookie & OAuth2 state, random hash (for user identification)
     session_id = Column(String(32), unique=True, index=True, nullable=False)
     # Service id, such as google+, github, etc...
-    service_id = Column(String(255)) 
+    service_id = Column(String(255))
     # OAuth2 session creation time
     oauth2_created_at = Column(DateTime)
     # OAuth2 session expired time
@@ -56,10 +56,8 @@ class UserSession(Base):
         return json.loads(self.oauth2_data)
 
     def oauth2_is_alive(self):
-        if self.oauth2_created_at is None:
-            return False
-        else:
-            return self.oauth2_expired_in > datetime.datetime.utcnow()
+        return self.oauth2_created_at is not None and \
+               self.oauth2_expired_in > datetime.datetime.utcnow()
 
     def user_info_json(self):
         return json.loads(self.user_info)

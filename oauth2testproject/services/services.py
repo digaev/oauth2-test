@@ -28,7 +28,8 @@ def _https_get_request(host, port, path):
 
 def _read_response(response):
     content_type = response.getheader('Content-Type').lower()
-    if (response.status == 200) and (content_type.find('application/json') != -1):
+    if response.status == 200 and\
+            content_type.find('application/json') != -1:
         buf = str(response.read(), 'utf-8')
         return json.loads(buf)
     return None

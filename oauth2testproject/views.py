@@ -29,7 +29,7 @@ class ViewBase(object):
         self.response.set_cookie('sid', self.session.session_id)
 
     def find_session(self, sid=None):
-        if (sid is None) and ('sid' in self.request.cookies):
+        if sid is None and 'sid' in self.request.cookies:
             sid = self.request.cookies['sid']
         if sid is not None:
             self.session = UserSession.find_by_sid(sid)
@@ -53,7 +53,7 @@ class SiteView(ViewBase):
             layout='app_layout',
             renderer='templates/home.pt'
             )
-    def home_view(self):
+    def home(self):
         self.view_data['title'] = 'Home'
         if self.user_logged:
             ui = self.session.user_info_json()
@@ -68,7 +68,7 @@ class SiteView(ViewBase):
     @view_config(
             route_name='signout'
             )
-    def signout_view(self):
+    def signout(self):
         if self.session is not None:
             self.response.delete_cookie(self.session.session_id)
             DBSession.delete(self.session)
@@ -93,10 +93,10 @@ class OAuth2View(ViewBase):
             route_name='oauth2_auth',
             renderer='json'
             )
-    def oauth2_auth_view(self):
-        if (self.find_session()) and\
-                ('service' in self.request.params) and\
-                (self.services.is_service(self.request.params['service'])):
+    def auth(self):
+        if self.find_session() and\
+                'service' in self.request.params and\
+                self.services.is_service(self.request.params['service']):
             service = self.services.create_service(self.request.params['service'])
             url = service.get_auth_url(self.request.cookies['sid'])
             return {'url': url}
@@ -107,10 +107,10 @@ class OAuth2View(ViewBase):
     @view_config(
             route_name='oauth2_callback'
             )
-    def oauth2_callback_view(self):
-        if ('service' in self.request.params) and\
-                ('state' in self.request.params) and\
-                (self.services.is_service(self.request.params['service'])):
+    def callback(self):
+        if 'service' in self.request.params and\
+                'state' in self.request.params and\
+                self.services.is_service(self.request.params['service']):
             if self.find_session(self.request.params['state']):
                 if 'code' in self.request.params:
                     if self.init_user_session():
@@ -128,7 +128,7 @@ class OAuth2View(ViewBase):
     def init_user_session(self):
         service = self.services.create_service(self.request.params['service'])
         at = service.exchange_code(self.request.params['code'])
-        if (at is not None) and ('access_token' in at):
+        if at is not None and 'access_token' in at:
             ui = service.get_user_info(at['access_token'])
             if ui is not None:
                 if 'expires_in' in at:
